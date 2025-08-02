@@ -16,6 +16,7 @@ source("modules/grouping_module.R")
 source("modules/likert_module.R")
 source("modules/analysis_module.R")
 source("modules/cfa_module.R")
+source("helpers/cfa_helpers.R")
 
 # Reactive store
 values <- reactiveValues()

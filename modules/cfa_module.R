@@ -72,38 +72,50 @@ cfaServer <- function(id, values) {
         result <- values$cfa_results[[obj_name]]
         
         box(
-          title = paste("CFA Results:", obj_name), status = "info", solidHeader = TRUE, width = 12,
+          title = paste("CFA Results:", obj_name), 
+          status = "info", 
+          solidHeader = TRUE, 
+          width = 12,
+          collapsible = TRUE,
           
           # Initial Model Results
-          h4("Initial Model (All Items):"),
-          if (!is.null(result$initial_fit)) {
-            div(
-              p(paste("Items:", paste(result$initial_items, collapse = ", "))),
-              create_fit_summary(result$initial_fit)
-            )
-          } else {
-            p("Initial model could not be fitted", style = "color: red;")
-          },
-          
-          br(),
+          div(
+            style = "border-left: 4px solid #3c8dbc; padding-left: 15px; margin-bottom: 20px;",
+            h4("Initial Model (All Items):", style = "color: #3c8dbc;"),
+            p(paste("Items (", length(result$initial_items), "):", 
+                    paste(result$initial_items, collapse = ", ")), 
+              style = "font-style: italic; margin-bottom: 10px;"),
+            if (!is.null(result$initial_fit)) {
+              create_detailed_fit_summary(result$initial_fit)
+            } else {
+              div(
+                p("Initial model could not be fitted", style = "color: red; font-weight: bold;"),
+                p("This usually indicates multicollinearity or insufficient data.", style = "color: #666; font-size: 0.9em;")
+              )
+            }
+          ),
           
           # Final Model Results
-          h4("Final Model (Optimized Items):"),
-          if (!is.null(result$final_fit)) {
-            div(
-              p(paste("Items:", paste(result$final_items, collapse = ", "))),
-              create_fit_summary(result$final_fit)
-            )
-          } else {
-            p("Final model could not be fitted (too few items)", style = "color: orange;")
-          },
-          
-          br(),
+          div(
+            style = "border-left: 4px solid #00a65a; padding-left: 15px; margin-bottom: 20px;",
+            h4("Final Model (Optimized Items):", style = "color: #00a65a;"),
+            p(paste("Items (", length(result$final_items), "):", 
+                    paste(result$final_items, collapse = ", ")), 
+              style = "font-style: italic; margin-bottom: 10px;"),
+            if (!is.null(result$final_fit)) {
+              create_detailed_fit_summary(result$final_fit)
+            } else {
+              div(
+                p("Final model could not be fitted", style = "color: orange; font-weight: bold;"),
+                p("This may be due to too few items remaining after optimization.", style = "color: #666; font-size: 0.9em;")
+              )
+            }
+          ),
           
           # Comparison
           if (!is.null(result$initial_fit) && !is.null(result$final_fit)) {
             div(
-              h4("Model Comparison:"),
+              style = "border-left: 4px solid #f39c12; padding-left: 15px; background-color: #fefefe;",
               create_model_comparison(result$initial_fit, result$final_fit)
             )
           }
@@ -113,75 +125,4 @@ cfaServer <- function(id, values) {
       do.call(tagList, result_boxes)
     })
   })
-}
-
-# Helper function to create CFA model syntax
-create_cfa_model <- function(items, factor_name) {
-  # Clean factor name for lavaan syntax
-  clean_name <- gsub("[^A-Za-z0-9_]", "_", factor_name)
-  paste0(clean_name, " =~ ", paste(items, collapse = " + "))
-}
-
-# Helper function to safely run CFA
-run_cfa_safely <- function(model, data) {
-  tryCatch({
-    fit <- cfa(model, data = data, estimator = "MLR")
-    return(fit)
-  }, error = function(e) {
-    return(NULL)
-  })
-}
-
-# Helper function to create fit summary
-create_fit_summary <- function(fit) {
-  if (is.null(fit)) return(p("Model could not be fitted"))
-  
-  fit_measures <- fitMeasures(fit, c("chisq", "df", "pvalue", "cfi", "tli", "rmsea", "srmr"))
-  
-  div(
-    p(paste("χ² =", round(fit_measures["chisq"], 3), 
-            ", df =", fit_measures["df"], 
-            ", p =", round(fit_measures["pvalue"], 3))),
-    p(paste("CFI =", round(fit_measures["cfi"], 3), 
-            ", TLI =", round(fit_measures["tli"], 3))),
-    p(paste("RMSEA =", round(fit_measures["rmsea"], 3), 
-            ", SRMR =", round(fit_measures["srmr"], 3))),
-    p(create_fit_interpretation(fit_measures), style = "font-weight: bold;")
-  )
-}
-
-# Helper function to interpret fit
-create_fit_interpretation <- function(fit_measures) {
-  cfi <- fit_measures["cfi"]
-  rmsea <- fit_measures["rmsea"]
-  srmr <- fit_measures["srmr"]
-  
-  if (cfi >= 0.95 && rmsea <= 0.06 && srmr <= 0.08) {
-    return("Excellent fit")
-  } else if (cfi >= 0.90 && rmsea <= 0.08 && srmr <= 0.10) {
-    return("Acceptable fit")
-  } else {
-    return("Poor fit")
-  }
-}
-
-# Helper function to compare models
-create_model_comparison <- function(initial_fit, final_fit) {
-  if (is.null(initial_fit) || is.null(final_fit)) return(p("Cannot compare models"))
-  
-  initial_measures <- fitMeasures(initial_fit, c("cfi", "rmsea", "srmr"))
-  final_measures <- fitMeasures(final_fit, c("cfi", "rmsea", "srmr"))
-  
-  div(
-    p("Fit Improvement:"),
-    p(paste("CFI:", round(initial_measures["cfi"], 3), "→", round(final_measures["cfi"], 3),
-            "(", ifelse(final_measures["cfi"] > initial_measures["cfi"], "+", ""), 
-            round(final_measures["cfi"] - initial_measures["cfi"], 3), ")")),
-    p(paste("RMSEA:", round(initial_measures["rmsea"], 3), "→", round(final_measures["rmsea"], 3),
-            "(", ifelse(final_measures["rmsea"] < initial_measures["rmsea"], "", "+"), 
-            round(final_measures["rmsea"] - initial_measures["rmsea"], 3), ")")),
-    p(paste("SRMR:", round(initial_measures["srmr"], 3), "→", round(final_measures["srmr"], 3),
-            "(", ifelse(final_measures["srmr"] < initial_measures["srmr"], "", "+"), 
-            round(final_measures["srmr"] - initial_measures["srmr"], 3), ")"))
-  )
 }
